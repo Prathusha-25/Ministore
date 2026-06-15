@@ -113,3 +113,145 @@ if prompt:
 
     with st.chat_message("assistant"):
         st.write(response)
+        import streamlit as st
+from openai import OpenAI
+from data import products
+
+# ----------------------------------------------------
+# Page Configuration
+# ----------------------------------------------------
+
+st.set_page_config(
+    page_title="MiniStore Support",
+    page_icon="💬"
+)
+
+st.title("💬 MiniStore Customer Support")
+
+# ----------------------------------------------------
+# Initialize OpenAI Client
+# ----------------------------------------------------
+
+client = OpenAI(
+    api_key=st.secrets["OPENAI_API_KEY"]
+)
+
+# ----------------------------------------------------
+# Create Product Catalog for System Prompt
+# ----------------------------------------------------
+
+catalog = ""
+
+for product in products:
+    catalog += f"""
+Product: {product['name']}
+Category: {product['category']}
+Price: ₹{product['price']}
+Description: {product['description']}
+
+"""
+
+# ----------------------------------------------------
+# System Prompt
+# ----------------------------------------------------
+
+SYSTEM_PROMPT = f"""
+You are the official customer support assistant for MiniStore.
+
+Your job is to help customers with:
+
+- Product information
+- Product recommendations
+- Delivery and shipping
+- Orders
+- Refunds
+- Returns
+- Payment methods
+- General store policies
+
+Store Catalog:
+
+{catalog}
+
+Rules:
+
+1. Only answer questions related to MiniStore.
+2. Use the product catalog above when answering product questions.
+3. If a user asks about topics unrelated to the store
+   (politics, coding, math, science, history, etc.),
+   politely respond:
+
+   "I'm here to help with MiniStore products,
+   orders, delivery, refunds, returns, and payments.
+   Please ask a store-related question."
+
+4. Be professional, friendly, and concise.
+
+5. Never invent products that are not in the catalog.
+"""
+
+# ----------------------------------------------------
+# Chat History
+# ----------------------------------------------------
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Display previous messages
+
+for message in st.session_state.messages:
+
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# ----------------------------------------------------
+# Chat Input
+# ----------------------------------------------------
+
+user_input = st.chat_input("Ask about products, orders, refunds...")
+
+if user_input:
+
+    # Store user message
+    st.session_state.messages.append(
+        {
+            "role": "user",
+            "content": user_input
+        }
+    )
+
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    # Build conversation
+
+    messages = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT
+        }
+    ]
+
+    messages.extend(st.session_state.messages)
+
+    # Call OpenAI API
+
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=messages,
+        temperature=0.3
+    )
+
+    assistant_reply = response.choices[0].message.content
+
+    # Save assistant reply
+
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": assistant_reply
+        }
+    )
+
+    with st.chat_message("assistant"):
+        st.markdown(assistant_reply)
